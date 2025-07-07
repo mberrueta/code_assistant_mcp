@@ -1,11 +1,18 @@
 services:
   chromadb:
-    image: chromadb/chroma:0.6.3
+    image: chromadb/chroma
+    ports:
+      - "8000:8000"
     volumes:
-      - ./chromadb:/chroma/chroma
+      - ./chroma_data:/chroma
     environment:
       - IS_PERSISTENT=TRUE
-      - PERSIST_DIRECTORY=/chroma/chroma # this is the default path, change it as needed
-      - ANONYMIZED_TELEMETRY=${ANONYMIZED_TELEMETRY:-TRUE}
+
+  pgvector-db:
+    image: ankane/pgvector
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
     ports:
-      - 8000:8000
+      - "5433:5432"

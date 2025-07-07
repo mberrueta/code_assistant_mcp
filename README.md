@@ -78,6 +78,16 @@ docker-compose up -d
 To build the command-line executable (escript):
 
 ```bash
+uv run python -m app.cli -h
+uv run python -m app.cli add ./data/PhoenixEcto_BestPractices.pdf
+uv run python -m app.cli remove ./data/PhoenixEcto_BestPractices.pdf
+```
+
+``` bash
+export DB_BACKEND=pgvector
+export PG_CONNECTION_STRING="postgresql://user:password@host:port/database"
+export OPENAI_API_KEY="your_openai_api_key" # Required for OpenAIEmbeddings
+uv run python -m app.cli add <file_path>
 ```
 
 This will generate an executable named `rag_mcp` in the current directory.
@@ -132,3 +142,8 @@ Expected Response:{
 }
 ```
 
+## Upgrade libs
+
+``` sh
+uv lock --upgrade
+```

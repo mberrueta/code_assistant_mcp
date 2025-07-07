@@ -1,0 +1,19 @@
+[project]
+name = "rag-mcp"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "chromadb>=1.0.15",
+    "fastapi>=0.116.0",
+    "langchain>=0.3.26",
+    "pypdf>=5.7.0",
+    "python-multipart>=0.0.20",
+    "uvicorn>=0.35.0",
+    "langchain-community",
+    "tqdm>=4.66.1",
+    "psycopg2-binary",
+    "langchain-openai",
+    "tiktoken",
+]

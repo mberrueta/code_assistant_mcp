@@ -1,0 +1,17 @@
+<<<<<<< HEAD
+<<<<<<< HEAD
+/.envrc.custom
+=======
+app/__pycache__/*
+>>>>>>> 942212b (Add working)
+=======
+# Python cache
+__pycache__/
+
+# Ruff cache
+.ruff_cache/
+<<<<<<< HEAD
+>>>>>>> bb01bab (ignore)
+=======
+/.envrc.custom
+>>>>>>> f1dbffe (Allow pgvector)
