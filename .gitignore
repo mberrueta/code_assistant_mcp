@@ -16,3 +16,4 @@ __pycache__/
 /.envrc.custom
 >>>>>>> f1dbffe (Allow pgvector)
 /code_assistant_mcp/.envrc.custom
+/code_assistant_mcp/.venv/
