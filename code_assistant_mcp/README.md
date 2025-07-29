@@ -212,6 +212,29 @@ curl http://127.0.0.1:8000/tables
 - **SQLAlchemy**: Database abstraction layer supporting multiple database types
 - **Dual Mode**: Single script can run in either HTTP or MCP mode
 
+## RAG Builder
+
+`rag_builder.py` is a utility to fetch, process, and store Elixir library documentation from hexdocs.pm for use in a Retrieval-Augmented Generation (RAG) system. It fetches the main documentation page and any linked pages from the sidebar (excluding API references and changelogs).
+
+Currently, it saves the raw HTML, extracted clean text, and generated embeddings to local files. Future iterations will integrate with a vector database.
+
+### Usage
+
+To fetch documentation for a specific Elixir library and version:
+
+```bash
+uv run python rag_builder.py <library_name> <version>
+uv run python rag_builder.py jason 1.4.4 
+```
+
+**Example:**
+
+```bash
+uv run python rag_builder.py jason 1.4.3
+```
+
+This will save the raw HTML, extracted text (`.txt`), and placeholder embeddings (`.json`) to `rag_store/<library_name>/<version>/`.
+
 ## License
 
 MIT License - feel free to use and modify as needed.
