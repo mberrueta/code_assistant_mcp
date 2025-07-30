@@ -1,20 +1,7 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-/.envrc.custom
-=======
-app/__pycache__/*
->>>>>>> 942212b (Add working)
-=======
-# Python cache
+.envrc.custom
 __pycache__/
-
-# Ruff cache
 .ruff_cache/
-<<<<<<< HEAD
->>>>>>> bb01bab (ignore)
-=======
-/.envrc.custom
->>>>>>> f1dbffe (Allow pgvector)
-/code_assistant_mcp/.envrc.custom
-/code_assistant_mcp/.venv/
-/code_assistant_mcp/rag_store/
+.envrc.custom
+.venv/
+rag_store/
+uv.lock

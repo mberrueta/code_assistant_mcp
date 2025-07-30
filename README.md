@@ -220,20 +220,20 @@ Currently, it saves the raw HTML, extracted clean text, and generated embeddings
 
 ### Usage
 
-To fetch documentation for a specific Elixir library and version:
+To fetch documentation for a specific Elixir library and version (version is optional; if omitted, the latest stable version will be fetched):
 
 ```bash
-uv run python rag_builder.py <library_name> <version>
-uv run python rag_builder.py jason 1.4.4 
+uv run python rag_builder.py <library_name> [version]
 ```
 
-**Example:**
+**Examples:**
 
 ```bash
 uv run python rag_builder.py jason 1.4.3
+uv run python rag_builder.py req # Fetches the latest version of Req
 ```
 
-This will save the raw HTML, extracted text (`.txt`), and placeholder embeddings (`.json`) to `rag_store/<library_name>/<version>/`.
+This will save the raw HTML (`.html`), extracted text (`.txt`), and a FAISS index (`.faiss`) along with a JSON file (`.json`) containing the document chunks and metadata to `rag_store/<library_name>/<version>/`.
 
 ## License
 

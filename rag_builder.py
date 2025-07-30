@@ -7,6 +7,8 @@ import re
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 
+import numpy as np
+import faiss
 from sentence_transformers import SentenceTransformer
 
 
@@ -73,13 +75,16 @@ def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str]
     return chunks
 
 def process_and_store_docs(library_name: str, version: str, output_dir: str = "rag_store"):
-    """Processes saved HTML files, extracts text, chunks it, and saves to local files."""
+    """Processes saved HTML files, extracts text, chunks it, and stores in FAISS."""
     model = SentenceTransformer('all-MiniLM-L6-v2')
 
     docs_path = os.path.join(output_dir, library_name, version)
     if not os.path.exists(docs_path):
         print(f"Documentation directory not found: {docs_path}", file=sys.stderr)
         return
+
+    all_chunks = []
+    all_metadatas = []
 
     for filename in os.listdir(docs_path):
         if filename.endswith(".html"):
@@ -90,20 +95,69 @@ def process_and_store_docs(library_name: str, version: str, output_dir: str = "r
             clean_text = extract_text_from_html(html_content)
             if not clean_text: continue
 
-            # Save clean text to a .txt file
-            text_filename = filename.replace(".html", ".txt")
-            text_file_path = os.path.join(docs_path, text_filename)
-            with open(text_file_path, "w", encoding="utf-8") as f:
-                f.write(clean_text)
-            print(f"Clean text saved to {text_file_path}")
+            chunks = chunk_text(clean_text)
+            if not chunks: continue
 
-            # Generate and save real embeddings
-            embeddings = model.encode(clean_text).tolist()
-            embeddings_filename = filename.replace(".html", ".json")
-            embeddings_file_path = os.path.join(docs_path, embeddings_filename)
-            with open(embeddings_file_path, "w", encoding="utf-8") as f:
-                json.dump(embeddings, f)
-            print(f"Embeddings saved to {embeddings_file_path}")
+            for chunk in chunks:
+                all_chunks.append(chunk)
+                all_metadatas.append({
+                    "source": filename,
+                    "library": library_name,
+                    "version": version
+                })
+
+    if not all_chunks:
+        print("No chunks to process.", file=sys.stderr)
+        return
+
+    print(f"Generating embeddings for {len(all_chunks)} chunks...")
+    embeddings = model.encode(all_chunks)
+    embeddings = np.array(embeddings).astype('float32')
+
+    # Create FAISS index
+    dimension = embeddings.shape[1]
+    index = faiss.IndexFlatL2(dimension)  # L2 distance for similarity search
+    index.add(embeddings)
+
+    # Save FAISS index and documents
+    faiss_index_path = os.path.join(docs_path, "index.faiss")
+    faiss.write_index(index, faiss_index_path)
+    print(f"FAISS index saved to {faiss_index_path}")
+
+    documents_path = os.path.join(docs_path, "documents.json")
+    with open(documents_path, "w", encoding="utf-8") as f:
+        json.dump({"chunks": all_chunks, "metadatas": all_metadatas}, f, indent=2)
+    print(f"Documents saved to {documents_path}")
+
+def get_latest_version(library_name: str) -> str:
+    """Fetches the latest version of the library from hexdocs.pm."""
+    url = f"https://hexdocs.pm/{library_name}/readme.html"
+    content = fetch_page(url)
+    if not content:
+        raise ValueError(f"Failed to fetch main page for {library_name} to determine latest version.")
+
+    soup = BeautifulSoup(content, 'lxml')
+
+    # Try to find version from dropdown (for older ExDoc versions)
+    version_select = soup.find('select', class_='sidebar-projectVersionsDropdown')
+    if version_select:
+        selected_option = version_select.find('option', selected=True)
+        if selected_option and selected_option.has_attr('value'):
+            version_url = selected_option['value']
+            match = re.search(r'/([0-9]+\.[0-9]+\.[0-9a-zA-Z\-.]+)/readme.html', version_url)
+            if match:
+                return match.group(1)
+
+    # Try to find version from direct div (for newer ExDoc versions)
+    version_div = soup.find('div', class_='sidebar-projectVersion')
+    if version_div:
+        version_text = version_div.get_text(strip=True)
+        # Remove 'v' prefix if present
+        if version_text.startswith('v'):
+            return version_text[1:]
+        return version_text
+
+    raise ValueError(f"Could not determine latest version for {library_name}.")
 
 def main():
     """
@@ -111,11 +165,23 @@ def main():
     """
     parser = argparse.ArgumentParser(description="Fetch and save Elixir library documentation.")
     parser.add_argument("library", help="The name of the Elixir library (e.g., 'jason').")
-    parser.add_argument("version", help="The version of the library (e.g., '1.4.3').")
+    parser.add_argument("version", nargs='?', help="The version of the library (e.g., '1.4.3'). Optional, will fetch latest if not provided.")
     parser.add_argument("--output-dir", default="rag_store", help="The directory to store the documentation in.")
     args = parser.parse_args()
 
-    base_url = f"https://hexdocs.pm/{args.library}/{args.version}/"
+    library_name = args.library
+    version = args.version
+
+    if version is None:
+        print(f"Version not provided. Attempting to find latest version for {library_name}...")
+        try:
+            version = get_latest_version(library_name)
+            print(f"Detected latest version: {version}")
+        except ValueError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    base_url = f"https://hexdocs.pm/{library_name}/{version}/"
     readme_url = urljoin(base_url, "readme.html")
 
     fetched_pages = {}
@@ -170,10 +236,10 @@ def main():
         sys.exit(1)
 
     if fetched_pages:
-        save_documentation(fetched_pages, args.library, args.version, args.output_dir)
+        save_documentation(fetched_pages, library_name, version, args.output_dir)
 
-    # Process and store the documentation in ChromaDB
-    process_and_store_docs(args.library, args.version, args.output_dir)
+    # Process and store the documentation
+    process_and_store_docs(library_name, version, args.output_dir)
 
 if __name__ == "__main__":
     main()
