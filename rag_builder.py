@@ -286,6 +286,25 @@ def print_pgvector_results(results):
         print(row[1])
     print("-" * 20)
 
+def handle_check_chroma(args):
+    """Handles the check_chroma command."""
+    client = chromadb.HttpClient(host='localhost', port=8000)
+    if args.collection_name:
+        try:
+            collection = client.get_collection(name=args.collection_name)
+            count = collection.count()
+            print(f"Collection '{args.collection_name}' has {count} items.")
+            items = collection.get(limit=5, include=["metadatas", "documents"])
+            print("\nFirst 5 items:")
+            print(items)
+        except ValueError:
+            print(f"Collection '{args.collection_name}' not found.", file=sys.stderr)
+    else:
+        collections = client.list_collections()
+        print("Available collections:")
+        for collection in collections:
+            print(f"- {collection.name}")
+
 def main():
     """
     Main function to fetch, save, and query Elixir library documentation.
@@ -307,6 +326,10 @@ def main():
     parser_query.add_argument("--output-dir", default="rag_store", help="The directory where documentation is stored.")
     parser_query.add_argument("-k", "--top-k", type=int, default=5, help="Number of results to return.")
     parser_query.set_defaults(func=handle_query)
+
+    parser_check_chroma = subparsers.add_parser("check_chroma", help="Check the status of the ChromaDB database.")
+    parser_check_chroma.add_argument("collection_name", nargs='?', help="The name of the collection to inspect.")
+    parser_check_chroma.set_defaults(func=handle_check_chroma)
 
     args = parser.parse_args()
     args.func(args)

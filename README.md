@@ -174,6 +174,24 @@ Before using the `pgvector` backend for the first time, you need to create the `
 PGPASSWORD=$RAG_DB_PASSWORD psql -h $RAG_DB_HOSTNAME -p $RAG_DB_PORT -U $RAG_DB_USERNAME -d postgres -c "CREATE DATABASE $RAG_DB_NAME;"
 ```
 
+### Checking ChromaDB
+
+To inspect the contents of your ChromaDB database, you can use the `check_chroma` command. This is a convenient way to verify that your data has been indexed correctly.
+
+**List all collections:**
+
+```bash
+uv run python rag_builder.py check_chroma
+```
+
+**Inspect a specific collection:**
+
+```bash
+uv run python rag_builder.py check_chroma <collection_name>
+```
+
+This will show you the number of items in the collection and a sample of the first 5 documents.
+
 ### Usage
 
 To fetch documentation for a specific Elixir library and version (version is optional; if omitted, the latest stable version will be fetched):
