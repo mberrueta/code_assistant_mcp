@@ -10,28 +10,6 @@ A dual-mode server that provides database inspection via both FastAPI REST endpo
 - **Sample Data**: Safely query sample rows with built-in limits
 - **MCP Integration**: Direct integration with AI assistants for database exploration
 
-## Installation
-
-### Using uv
-```bash
-# Initialize a new project (if not already done)
-uv init
-
-# Add dependencies
-uv add mcp fastapi uvicorn sqlalchemy psycopg2-binary
-
-# For MySQL instead of PostgreSQL:
-# uv add mcp fastapi uvicorn sqlalchemy pymysql
-
-# SQLite is included with Python by default
-```
-
-### Alternative: Using pip
-```bash
-pip install mcp fastapi uvicorn sqlalchemy psycopg2-binary
-# For MySQL: pip install pymysql
-```
-
 ## Database Connection
 
 Set your database URL as an environment variable:
@@ -55,7 +33,8 @@ export DATABASE_URL="sqlite:///./database.db"
 ```bash
 uv run db_tools.py
 # or with explicit DATABASE_URL
-DATABASE_URL="postgresql://user:password@127.0.0.1:5432/database" uv run db_tools.py
+export DATABASE_URL="postgresql://user:password@127.0.0.1:5432/database" 
+uv run db_tools.py
 ```
 
 Access at: http://127.0.0.1:8000
@@ -67,27 +46,13 @@ uv run db_tools.py --mcp
 
 ## MCP Client Configuration
 
-### For Gemini CLI
+### For Gemini CLI, Claude
 Add to your Gemini CLI configuration file:
 
 ```json
 {
   "mcpServers": {
     "dbHelper": {
-      "command": "uv",
-      "args": ["run", "db_tools.py", "--mcp"],
-      "cwd": "/path/to/your/project",
-      "timeout": 15000
-    }
-  }
-}
-```
-
-### For Claude Desktop or other MCP clients
-```json
-{
-  "mcpServers": {
-    "database-inspector": {
       "command": "uv",
       "args": ["run", "db_tools.py", "--mcp"],
       "cwd": "/path/to/your/project",
@@ -173,39 +138,6 @@ Once configured, you can use these commands in Gemini CLI:
 - **Tool not found**: Check MCP server configuration and restart Gemini CLI
 - **Timeout errors**: Increase timeout in MCP configuration
 
-### Testing Your Setup
-
-Test database connection:
-```bash
-uv run python -c "
-from sqlalchemy import create_engine, inspect
-import os
-engine = create_engine(os.getenv('DATABASE_URL'))
-print('Connected! Tables:', inspect(engine).get_table_names())
-"
-```
-
-Test MCP server:
-```bash
-uv run db_tools.py --mcp
-# Should start and wait for input (Ctrl+C to exit)
-```
-
-Test FastAPI mode:
-```bash
-uv run db_tools.py &
-curl http://127.0.0.1:8000/tables
-```
-
-## Key Implementation Details
-
-### Critical Fixes Applied
-1. **Logging Disabled in MCP Mode**: Prevents stdin/stdout interference with MCP protocol
-2. **Proper Error Handling**: Errors returned as TextContent instead of raising exceptions
-3. **Safe Query Limits**: Sample queries capped at 10 rows maximum
-4. **TCP Connection Forcing**: Database URLs use explicit hosts to avoid socket issues
-5. **Async/Await Support**: Proper async implementation for MCP protocol
-
 ### Architecture
 - **FastAPI**: Provides HTTP REST endpoints for direct database access
 - **MCP Protocol**: Enables AI assistant integration via stdin/stdout communication
@@ -216,25 +148,52 @@ curl http://127.0.0.1:8000/tables
 
 `rag_builder.py` is a utility to fetch, process, and store Elixir library documentation from hexdocs.pm for use in a Retrieval-Augmented Generation (RAG) system. It fetches the main documentation page and any linked pages from the sidebar (excluding API references and changelogs).
 
-Currently, it saves the raw HTML, extracted clean text, and generated embeddings to local files. Future iterations will integrate with a vector database.
+### Database Backends
+
+The script supports three backends for storing the documentation embeddings:
+
+*   `faiss`: (Default) Stores a FAISS index and JSON files on the local filesystem.
+*   `chromadb`: Stores data in a ChromaDB vector database.
+*   `pgvector`: Stores data in a PostgreSQL database with the pgvector extension.
+
+To select a backend, set the `RAG_DB_BACKEND` environment variable. If not set, it will default to `faiss`.
+
+**Docker Services:**
+
+The `docker-compose.yml` file includes services for `chromadb` and `pgvector-db`. To use them, start them with:
+
+```bash
+docker-compose up -d
+```
+
+### First-Time Setup for pgvector
+
+Before using the `pgvector` backend for the first time, you need to create the `rag_db` database. Make sure your `RAG_DB_*` variables are set in your environment (e.g., by sourcing `.envrc`), then run the following command:
+
+```bash
+PGPASSWORD=$RAG_DB_PASSWORD psql -h $RAG_DB_HOSTNAME -p $RAG_DB_PORT -U $RAG_DB_USERNAME -d postgres -c "CREATE DATABASE $RAG_DB_NAME;"
+```
 
 ### Usage
 
 To fetch documentation for a specific Elixir library and version (version is optional; if omitted, the latest stable version will be fetched):
 
+**FAISS (Default):**
+
 ```bash
-uv run python rag_builder.py <library_name> [version]
+uv run python rag_builder.py build jason 1.4.3
 ```
 
-**Examples:**
+**ChromaDB:**
 
 ```bash
-uv run python rag_builder.py jason 1.4.3
-uv run python rag_builder.py req # Fetches the latest version of Req
+ RAG_DB_BACKEND=chromadb uv run python rag_builder.py build jason 1.4.3
+```
+
+**pgvector:**
+
+```bash
+ RAG_DB_BACKEND=pgvector RAG_DATABASE_URL="postgresql://user:pass@host:port/db" uv run python rag_builder.py build jason 1.4.3
 ```
 
 This will save the raw HTML (`.html`), extracted text (`.txt`), and a FAISS index (`.faiss`) along with a JSON file (`.json`) containing the document chunks and metadata to `rag_store/<library_name>/<version>/`.
-
-## License
-
-MIT License - feel free to use and modify as needed.

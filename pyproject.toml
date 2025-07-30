@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
+py_modules = ["db_tools", "hello", "rag_builder"]
 dependencies = [
     "httpx>=0.28.1",
     "mcp>=1.12.1",
@@ -16,4 +17,9 @@ dependencies = [
     "pydantic-core",
     "typing-extensions",
     "typing-inspection",
+    "chromadb-client>=0.5.0",
+    "faiss-cpu>=1.8.0",
+    "sentence-transformers>=2.2.2",
+    "beautifulsoup4>=4.12.3",
+    "lxml>=5.2.2",
 ]
