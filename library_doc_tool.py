@@ -4,8 +4,14 @@ from bs4 import BeautifulSoup
 from langchain_community.document_loaders import PyPDFLoader
 import tempfile
 import os
-from mcp import Tool, main
-from pydantic import Field
+import asyncio
+import sys
+import logging
+from typing import List, Dict, Any
+
+from mcp.server import Server
+from mcp.server.stdio import stdio_server
+from mcp.types import Tool, TextContent
 
 
 def get_library_documentation(library_name: str) -> str:
@@ -49,14 +55,53 @@ def get_library_documentation(library_name: str) -> str:
     except Exception as e:
         return f"An error occurred: {e}"
 
-class LibraryDocTool(Tool):
-    """A tool for fetching library documentation."""
+mcp_server = Server("library_doc")
 
-    name = "library_doc"
+@mcp_server.list_tools()
+async def list_mcp_tools() -> List[Tool]:
+    """List available MCP tools"""
+    return [
+        Tool(
+            name="get_library_documentation",
+            description="Fetches the documentation for a given library.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "library_name": {"type": "string", "description": "The name of the library to get documentation for."}
+                },
+                "required": ["library_name"],
+            },
+        )
+    ]
 
-    def get_library_documentation(self, library_name: str = Field(..., description="The name of the library to get documentation for.")):
-        """Fetches the documentation for a given library."""
-        return get_library_documentation(library_name)
+@mcp_server.call_tool()
+async def call_mcp_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
+    """Handle MCP tool calls"""
+    try:
+        if name == "get_library_documentation":
+            result = get_library_documentation(arguments["library_name"])
+            return [TextContent(type="text", text=result)]
+        else:
+            return [TextContent(type="text", text=f"Unknown tool: {name}")]
+    except Exception as e:
+        return [TextContent(type="text", text=f"Error: {str(e)}")]
+
+async def run_mcp_stdio():
+    """Run MCP server via stdio (for LLM integration)"""
+    try:
+        async with stdio_server() as (read_stream, write_stream):
+            await mcp_server.run(
+                read_stream,
+                write_stream,
+                mcp_server.create_initialization_options()
+            )
+    except Exception as e:
+        print(f"MCP server error: {e}", file=sys.stderr)
+        raise
 
 if __name__ == "__main__":
-    main(LibraryDocTool)
+    if len(sys.argv) > 1 and sys.argv[1] == "--mcp":
+        logging.getLogger().setLevel(logging.CRITICAL)
+        asyncio.run(run_mcp_stdio())
+    else:
+        print("This tool is meant to be run with the --mcp flag.")
