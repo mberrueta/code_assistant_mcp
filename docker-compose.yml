@@ -1,8 +1,32 @@
 services:
+  db_docs:
+    build:
+      context: .
+    command: python -m db_tools
+    ports:
+      - "8000:8000"
+    env_file:
+      - .envrc
+  library_docs:
+    build:
+      context: .
+    command: python -m library_doc_tool
+    ports:
+      - "8001:8000"
+    env_file:
+      - .envrc
+  rag_builder:
+    build:
+      context: .
+    command: python -m rag_builder
+    ports:
+      - "8002:8000"
+    env_file:
+      - .envrc
   chromadb:
     image: chromadb/chroma
     ports:
-      - "8000:8000"
+      - "8003:8000"
     volumes:
       - ./chroma_data:/chroma
     environment:

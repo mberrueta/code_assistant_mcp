@@ -215,3 +215,36 @@ uv run python rag_builder.py build jason 1.4.3
 ```
 
 This will save the raw HTML (`.html`), extracted text (`.txt`), and a FAISS index (`.faiss`) along with a JSON file (`.json`) containing the document chunks and metadata to `rag_store/<library_name>/<version>/`.
+
+## Library Documentation Tool
+
+`library_doc_tool.py` is an MCP tool that allows you to fetch documentation for Python libraries from PyPI. It can handle both HTML and PDF documentation.
+
+### Usage
+
+To use the tool, you need to have the `library_docs` service running. You can start it with Docker Compose:
+
+```bash
+docker-compose up -d library_docs
+```
+
+Once the service is running, you can interact with it using an MCP client. For example, with the Gemini CLI, you can add the following to your configuration:
+
+```json
+{
+  "mcpServers": {
+    "library_doc_helper": {
+      "command": "uv",
+      "args": ["run", "library_doc_tool.py", "--mcp"],
+      "cwd": "/path/to/your/project",
+      "timeout": 15000
+    }
+  }
+}
+```
+
+Then, you can use the tool in a conversation:
+
+```bash
+"Can you get me the documentation for the requests library?"
+```
