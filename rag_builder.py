@@ -169,7 +169,7 @@ def store_pgvector(embeddings, chunks, metadatas, library_name, version):
 
 def get_latest_version(library_name: str) -> str:
     """Fetches the latest version of the library from hexdocs.pm."""
-    url = f"https://hexdocs.pm/{library_name}/readme.html"
+    url = f"https://hexdocs.pm/{library_name}"
     content = fetch_page(url)
     if not content:
         raise ValueError(f"Failed to fetch main page for {library_name} to determine latest version.")
@@ -179,7 +179,7 @@ def get_latest_version(library_name: str) -> str:
         selected_option = version_select.find('option', selected=True)
         if selected_option and selected_option.has_attr('value'):
             version_url = selected_option['value']
-            match = re.search(r'/([0-9]+\.[0-9]+\.[0-9a-zA-Z\-.]+)/readme.html', version_url)
+            match = re.search(r'/([0-9]+\.[0-9]+\.[0-9a-zA-Z\-.]+)', version_url)
             if match:
                 return match.group(1)
     version_div = soup.find('div', class_='sidebar-projectVersion')
@@ -351,25 +351,44 @@ def handle_build(args):
     docs_path = os.path.join(output_dir, library_name, version)
     if not os.path.exists(docs_path):
         base_url = f"https://hexdocs.pm/{library_name}/{version}/"
-        readme_url = urljoin(base_url, "readme.html")
         fetched_pages = {}
-        readme_content = fetch_page(readme_url)
-        if not readme_content:
-            print(f"Failed to fetch the main readme page from {readme_url}", file=sys.stderr)
+        
+        # Initial fetch, which might be a redirect page
+        initial_content = fetch_page(base_url)
+        if not initial_content:
+            print(f"Failed to fetch the main page from {base_url}", file=sys.stderr)
             sys.exit(1)
+
+        soup = BeautifulSoup(initial_content, 'lxml')
+        
+        # Handle meta refresh redirect
+        meta_refresh = soup.find("meta", attrs={"http-equiv": "refresh"})
+        if meta_refresh:
+            redirect_url_part = meta_refresh['content'].split('url=')[1]
+            redirect_url = urljoin(base_url, redirect_url_part)
+            print(f"Redirecting to {redirect_url}")
+            readme_content = fetch_page(redirect_url)
+            if not readme_content:
+                print(f"Failed to fetch the redirected page from {redirect_url}", file=sys.stderr)
+                sys.exit(1)
+            # Update base_url to the redirected path if the redirect is relative
+            if not redirect_url.endswith('/'):
+                base_url = os.path.dirname(redirect_url) + '/'
+
+        else:
+            readme_content = initial_content
+
         fetched_pages["readme"] = readme_content
-        print(f"Fetched readme.html")
+        print(f"Fetched initial page.")
 
         soup = BeautifulSoup(readme_content, 'lxml')
+        
+        # Try to find sidebar.js first
         sidebar_script = soup.find('script', src=re.compile(r"sidebar_items-.*\.js"))
-        if not sidebar_script:
-            print("Could not find sidebar_items.js script in the page.", file=sys.stderr)
-        else:
+        if sidebar_script:
             sidebar_url = urljoin(base_url, sidebar_script['src'])
             sidebar_content = fetch_page(sidebar_url)
-            if not sidebar_content:
-                print(f"Failed to fetch sidebar content from {sidebar_url}, proceeding with readme only.", file=sys.stderr)
-            else:
+            if sidebar_content:
                 try:
                     json_content = sidebar_content.split("=", 1)[1]
                     sidebar_data = json.loads(json_content)
@@ -388,6 +407,36 @@ def handle_build(args):
                             print(f"Fetched {page_id}.html")
                 except (json.JSONDecodeError, IndexError):
                     print("Failed to decode JSON from sidebar script, proceeding with readme only.", file=sys.stderr)
+            else:
+                print(f"Failed to fetch sidebar content from {sidebar_url}, proceeding with readme only.", file=sys.stderr)
+        else:
+            # Fallback to tab-based navigation
+            print("Could not find sidebar_items.js, falling back to tab-based navigation.")
+            nav_list = soup.find('ul', id='sidebar-list-nav')
+            if nav_list:
+                links_to_fetch = {}
+                tab_buttons = nav_list.find_all('button')
+                for button in tab_buttons:
+                    panel_id = button.get('aria-controls')
+                    if panel_id:
+                        panel = soup.find(id=panel_id)
+                        if panel:
+                            for link in panel.find_all('a', href=True):
+                                href = link['href']
+                                link_text = link.get_text(strip=True).lower()
+                                if 'changelog' not in link_text and 'api-reference' not in href:
+                                    page_id = href.replace('.html', '')
+                                    full_url = urljoin(base_url, href)
+                                    links_to_fetch[page_id] = full_url
+                
+                for page_id, url in links_to_fetch.items():
+                    if page_id not in fetched_pages:
+                        content = fetch_page(url)
+                        if content:
+                            fetched_pages[page_id] = content
+                            print(f"Fetched {page_id}.html")
+            else:
+                print("Could not find sidebar navigation tabs.", file=sys.stderr)
 
         if fetched_pages:
             save_documentation(fetched_pages, library_name, version, output_dir)

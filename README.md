@@ -216,6 +216,31 @@ uv run python rag_builder.py build jason 1.4.3
 
 This will save the raw HTML (`.html`), extracted text (`.txt`), and a FAISS index (`.faiss`) along with a JSON file (`.json`) containing the document chunks and metadata to `rag_store/<library_name>/<version>/`.
 
+## Elixir Dependency Scraper
+
+The `mix_dependency_scraper.py` script is a utility to parse an Elixir project's `mix.exs` and `mix.lock` files to generate a shell script. This generated script contains the commands to build the RAG data for each dependency using `rag_builder.py`.
+
+### Usage
+
+1.  **Run the scraper**: Point the script to your Elixir project's `mix.exs` file.
+2.  **Redirect the output**: Save the generated commands to a shell script.
+3.  **Execute the script**: Run the generated script to build the RAG data for all dependencies.
+
+**Example:**
+
+```bash
+# Generate the build script
+python mix_dependency_scraper.py /path/to/your/elixir_project/mix.exs > build_rag_data.sh
+
+# Review the generated script
+cat build_rag_data.sh
+
+# Execute the script
+bash build_rag_data.sh
+```
+
+This will execute the `uv run python rag_builder.py build <dependency> <version>` command for each dependency found in your `mix.exs` and `mix.lock` files.
+
 ## Library Documentation Tool
 
 `library_doc_tool.py` is an MCP tool that allows you to fetch documentation for Python libraries from PyPI. It can handle both HTML and PDF documentation.
